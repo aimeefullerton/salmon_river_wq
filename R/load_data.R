@@ -1,0 +1,18 @@
+# Load data --------------------------------------------------------------------
+library(qs2)
+library(data.table)
+
+# geospatial data
+load("data/salmon_geo.RData")
+
+# sites info
+load("data/site_info.RData")
+
+# stream temp data
+obs_temps <- qs2::qs_read("data/obs_temps.qs2")
+
+# thermal metrics
+lifestages <- read.csv("data/lifestage_periods.csv")
+metrics.obs <- read.csv("data/thermal_metrics_empirical.csv")
+
+
