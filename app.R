@@ -327,78 +327,117 @@ server <- function(input, output, session) {
       
   
 # Tab observed time series ----
-  # Reactive function to update the input source for map plots
-  updateSource.ts.obs <- reactive({
-    return(input)
-  })
-  
+
   # Make leaflet markers reactive to input selecting the Section
   leaflet_marks.ts.obs <- reactive({
+    # limit to years selected in slider input
+    r1 <- input$rkm_slider_ts.obs[1]
+    r2 <- input$rkm_slider_ts.obs[2]
+    y1 <- input$year_slider_ts.obs[1]
+    y2 <- input$year_slider_ts.obs[2]
+    if(y1 == y2){yrs <- as.character(y1)} else {yrs <- as.character(seq(input$year_slider_ts.obs[1], input$year_slider_ts.obs[2]))}
     
-    tbl_sites <- sites
-    #cb_palette <- c("#009E73","#0072B2","#D55E00","#CC79A7")
-    #cb_palette <- c("#F0E442","#E69F00","#CC79A7","#56B4E9","#009E73","#0072B2","#666666","#D55E00")
-    #cl <- data.frame("MPG" = sort(unique(tbl_sites$MPG)), clr = cb_palette)
-    #tbl_sites <- dplyr::left_join(tbl_sites, cl, by = "MPG") 
-    
-    # limit to years selected in slider input; include a site if any (not all) of the years in the range have data
-    y1 <- updateSource.ts.obs()$year_slider_ts.obs[1]
-    y2 <- updateSource.ts.obs()$year_slider_ts.obs[2]
-    if(y1 == y2){
-      yrs <- as.character(y1)
-    } else {
-      yrs <- as.character(seq(updateSource.ts.obs()$year_slider_ts.obs[1], updateSource.ts.obs()$year_slider_ts.obs[2]))
-    }
-    tbl_sites <- tbl_sites[which(rowSums(tbl_sites[,yrs, drop = F]) > 0), c("SiteCode", "Stream_Name", "MPG", "Latitude", "Longitude", "River_km", "hasdata", yrs)]
-    tbl_sites <- tbl_sites %>% filter(River_km >= as.numeric(updateSource.ts.obs()$rkm_slider_ts.obs[1]) &  River_km <= as.numeric(updateSource.ts.obs()$rkm_slider_ts.obs[2]))
-    tbl_sites <- tbl_sites %>% filter(!is.na(Latitude))
-  })
-  
-  # leaflet map
-  output$map_ts.obs <- renderLeaflet({
+    # filter sites:
+    tbl_sites <- sites %>%
+      # Filter for rows where at least one of the 'yrs' columns is > 0
+      filter(if_any(all_of(yrs), ~ .x > 0)) %>%
+      # Select specific columns plus the range/vector of 'yrs'
+      select(SiteCode, Stream_Name, MPG, Latitude, Longitude, River_km, hasdata, all_of(yrs)) %>% 
+      # Filter for river kilometers in range
+      filter(River_km >= r1, River_km <= r2)
+    })
+ 
 
-    map_data <- leaflet_marks.ts.obs()
-    cb_palette <- c("#009E73","#0072B2","#D55E00","#CC79A7")
-    pal <- colorFactor(palette = cb_palette, domain = map_data$MPG)
-    
-    leaflet(data = map_data) %>%
-      #Basemap
-      addProviderTiles(providers$OpenStreetMap) %>%
-      setView(lng = -114.9, lat = 44.9, zoom = 8) %>%
-      addPolygons(data = watershed, weight = 4,col = 'lightblue') %>%
-      addPolylines(data = streams, weight = 3,col = 'lightblue')%>%
-       # add site markers, show site names when clicked
-      clearMarkers() %>% 
+    # Create the Static Base Leaflet Map (runs only once when the application loads)
+    output$map_ts.obs <- renderLeaflet({
+      
+      # Use isolate() to get the first batch of data without creating 
+      # a reactive trigger that redraws the whole map later
+      initial_data <- isolate(leaflet_marks.ts.obs())
+      
+      # Define the color palette for the initial load
+      cb_palette <- c("#009E73","#0072B2","#D55E00","#CC79A7")
+      pal <- colorFactor(palette = cb_palette, domain = initial_data$MPG)
+      
+      leaflet(data = initial_data) %>%
+        # Add the Basemap
+        addProviderTiles(providers$OpenStreetMap) %>%
+        # Set the initial view
+        setView(lng = -114.9, lat = 44.9, zoom = 8) %>%
+        # Add the static polygons and polylines
+        addPolygons(data = watershed, weight = 4, col = 'lightblue') %>%
+        addPolylines(data = streams, weight = 3, col = 'lightblue') %>%
+        # Add the minimap for context
+        addMiniMap(toggleDisplay = TRUE, position = "bottomleft") %>%
+      
+      # Add the INITIAL markers
       addCircleMarkers(
-        # plot filtered leaflet markers
         lng = ~ Longitude,
         lat = ~ Latitude,
         radius = ~ sqrt(hasdata)/5,
         color = ~ pal(MPG),
-        stroke = T,
+        stroke = TRUE,
         weight = 1,
         opacity = 1,
         fillOpacity = 0.5,
-        popup =  ~ paste0(SiteCode, ": ", Stream_Name),
-        #popup =  ~ paste0(Latitude, ": ", Longitude),
-        options = markerOptions(riseOnHover = T)
+        popup = ~ paste0(SiteCode, ": ", Stream_Name),
+        options = markerOptions(riseOnHover = TRUE)
       ) %>% 
-      
-      # add minimap for context
-      addMiniMap(toggleDisplay = TRUE, position = "bottomleft") %>%
-    
-      # add legend
-      leaflet::addLegend(
-        position = "topright",
-        pal = pal,
-        values = ~ MPG,
-        #colors = sort(unique(map_data$clr)),
-        #labels = sort(unique(map_data$MPG)),
-        title = "Major Population Group",
-        opacity = 1
+        
+        # Add the INITIAL legend
+        leaflet::addLegend(
+          position = "topright",
+          pal = pal,
+          values = ~ MPG,
+          title = "Major Population Group",
+          opacity = 1
         )
-  })
-  
+      
+    })
+    
+    # Update the Dynamic Elements (runs whenever 'leaflet_marks.ts.obs()' changes)
+    observe({
+      # req() ensures the app doesn't crash if the data isn't loaded yet
+      req(leaflet_marks.ts.obs()) 
+      
+      # Get the reactive data
+      map_data <- leaflet_marks.ts.obs()
+      
+      # Define the color palette
+      cb_palette <- c("#009E73","#0072B2","#D55E00","#CC79A7")
+      pal <- colorFactor(palette = cb_palette, domain = map_data$MPG)
+      
+      # Target the existing map using leafletProxy
+      leafletProxy("map_ts.obs", data = map_data) %>%
+        
+        # Clear old markers and controls so they don't stack on top of each other
+        clearMarkers() %>% 
+        clearControls() %>% 
+        
+        # Add the new, updated markers
+        addCircleMarkers(
+          lng = ~ Longitude,
+          lat = ~ Latitude,
+          radius = ~ sqrt(hasdata)/5,
+          color = ~ pal(MPG),
+          stroke = T,
+          weight = 1,
+          opacity = 1,
+          fillOpacity = 0.5,
+          popup = ~ paste0(SiteCode, ": ", Stream_Name),
+          options = markerOptions(riseOnHover = T)
+        ) %>% 
+        
+        # Add the new, updated legend
+        leaflet::addLegend(
+          position = "topright",
+          pal = pal,
+          values = ~ MPG,
+          title = "Major Population Group",
+          opacity = 1
+        )
+    })      
+      
   # Create reactive object for leaflet data
   updateData.ts.obs <- reactive({
     # Ensure the data is not empty and avoid error message
@@ -411,23 +450,25 @@ server <- function(input, output, session) {
     lng <- input$map_ts.obs_marker_click$lng
     
     # Get variable to plot
-    vbl <- updateSource()$variable_ts.obs
+    vbl <- input$variable_ts.obs
 
     # Filter to selected site's records
     plotting_data <- obs_temps[obs_temps$Latitude %in% lat & obs_temps$Longitude %in% lng,]
-    # Gap-fill xts so we don't get a line connecting data over a gap
+    plotting_data <- plotting_data[,c("Date", vbl, "year", "SiteCode", "Stream_Name")]
+    
+    # ensure no gaps in time series
     start_date <- as.Date(min(plotting_data$Date, na.rm = T))
     end_date <- as.Date(max(plotting_data$Date, na.rm = T))
     full_dates <- as.data.frame(seq.Date(from = start_date, to = end_date, by = 1), drop = F); colnames(full_dates) <- "Date"
     plotting_data <- dplyr::left_join(full_dates, plotting_data, by = "Date")
-    plotting_data <- plotting_data[,c("Date", vbl, "year", "SiteCode", "Stream_Name")]
+    
 
     return(plotting_data)
   })
   
   output$dyplot_ts.obs <- renderDygraph({
     plotting_data <- updateData.ts.obs()
-    vbl <- updateSource()$variable_ts.obs
+    vbl <- input$variable_ts.obs
     ymax <- max(plotting_data[,vbl], na.rm = T)
     
     # Determine the Title based on input
@@ -451,15 +492,19 @@ server <- function(input, output, session) {
   
   # Download data for the site selected on the map
   output$download.ts.obs <- downloadHandler(
-    filename = function(){paste0(updateData.ts.obs()$SiteCode, "_", updateData.ts.obs()$Stream_Name, ".csv")}, 
+    filename = function(){
+      plot_data <- updateData.ts.obs()
+      paste0(plot_data$SiteCode, "_", plot_data$Stream_Name, ".csv")
+      }, 
     content = function(fname){
-      write.csv(updateData.ts.obs()[,c("SiteCode", "Date", "AvgDailyTemp")], fname, row.names = FALSE)
+      plot_data <- updateData.ts.obs()
+      write.csv(plot_data[,c("SiteCode", "Date", "AvgDailyTemp")], fname, row.names = F)
     }
   )
 
   output$plot.ts.obs <- renderPlotly({
     plotting_data <- updateData.ts.obs()
-    vbl <- updateSource()$variable_ts.obs
+    vbl <- input$variable_ts.obs
     
     # Determine the Title based on input
     plot_title <- if (vbl == "AvgDailyTemp") {
@@ -498,7 +543,7 @@ server <- function(input, output, session) {
 
   # Make drop-down choice of year life stages upon user input of life history
   metric.lifestage = reactive({
-    if(updateSource()$lifehist.met.obs == "generic") {
+    if(input$lifehist.met.obs == "generic") {
       as.character(lubridate::month(1:12, label = T))
     } else {
       c("Prespawn" = "prespawn", "Incubation" = "incubat",
@@ -508,8 +553,8 @@ server <- function(input, output, session) {
 
   # Make drop-down choice of sites to highlight match life history and life stage selected
   metric.site = reactive({
-      lh <- updateSource()$lifehist.met.obs
-      ls <- updateSource()$lifestage.met.obs
+      lh <- input$lifehist.met.obs
+      ls <- input$lifestage.met.obs
       c(NA, sort(unique(metrics.obs$SiteCode[metrics.obs$LifeHistory %in% lh & metrics.obs$Life.stage %in% ls])))
   })
 
@@ -531,11 +576,11 @@ server <- function(input, output, session) {
 #################################################################
 
   updateData.met.obs.yr <- reactive({
-    lh <- updateSource()$lifehist.met.obs
-    ls <- updateSource()$lifestage.met.obs
-    met <- updateSource()$metric.met.obs
+    lh <- input$lifehist.met.obs
+    ls <- input$lifestage.met.obs
+    met <- input$metric.met.obs
 
-    mdat <- metrics.obs[metrics.obs$Life.stage %in% ls & metrics.obs$LifeHistory %in% lh, c("SiteCode", "year", met)]
+    mdat <- metrics.obs[metrics.obs$Life.stage %in% ls & metrics.obs$LifeHistory %in% lh, c("SiteCode", "year", "River_km", met)]
 
     if(nrow(mdat) > 0){
       dat <- mdat %>% group_by(year) %>% summarise(q = list(quantile(.data[[met]],
@@ -549,7 +594,6 @@ server <- function(input, output, session) {
       sites.per.year[,"year"] <- as.integer(sites.per.year[,"year"])
       dat <- dplyr::left_join(dat, sites.per.year, by = "year")
       dat <- as.data.frame(dat)
-      mdat <- dplyr::left_join(mdat, sites[, c("SiteCode", "River_km")], by = "SiteCode")
       mdat <- as.data.frame(mdat)
 
       # check for missing data
@@ -561,23 +605,21 @@ server <- function(input, output, session) {
   })
 
   updateData.met.obs.km <- reactive({
-    lh <- updateSource()$lifehist.met.obs
-    ls <- updateSource()$lifestage.met.obs
-    met <- updateSource()$metric.met.obs
+    lh <- input$lifehist.met.obs
+    ls <- input$lifestage.met.obs
+    met <- input$metric.met.obs
 
-    mdat <- metrics.obs[metrics.obs$Life.stage %in% ls & metrics.obs$LifeHistory %in% lh, c("SiteCode", "year", met)]
+    mdat <- metrics.obs[metrics.obs$Life.stage %in% ls & metrics.obs$LifeHistory %in% lh, c("SiteCode", "year", "River_km", met)]
 
     if(nrow(mdat) > 0){
 
-      mdat <- dplyr::left_join(mdat, sites[, c("SiteCode", "River_km")], by = "SiteCode")
       dat <- mdat %>% group_by(SiteCode) %>% summarise(q = list(quantile(.data[[met]],
              probs = c(0,0.1, 0.25, 0.5, 0.75, 0.9, 1), na.rm = T))) %>% unnest_wider(q)
       colnames(dat) <- c("SiteCode", "Min", "Q10", "Q25", "Q50", "Q75", "Q90", "Max")
       d1 <- unique(mdat[,c("SiteCode", "year")])
-      d2 <- t(table(d1))
-      d3 <- colSums(d2)
-      years.per.site <- cbind.data.frame("SiteCode" = names(d3), as.numeric(d3))
-      colnames(years.per.site)[ncol(years.per.site)] <- "NoYears"
+      setDT(mdat)
+      # Count unique years per SiteCode
+      years.per.site <- mdat[, .(NoYears = uniqueN(year)), by = SiteCode]
       dat <- dplyr::left_join(dat, years.per.site, by = "SiteCode")
       dat <- as.data.frame(dat)
       mdat <- as.data.frame(mdat)
@@ -595,9 +637,9 @@ server <- function(input, output, session) {
   })
 
   updatePlot.met.obs.yr <- reactive({
-    lh <- updateSource()$lifehist.met.obs
-    ls <- updateSource()$lifestage.met.obs
-    met <- updateSource()$metric.met.obs
+    lh <- input$lifehist.met.obs
+    ls <- input$lifestage.met.obs
+    met <- input$metric.met.obs
 
     df <- updateData.met.obs.yr()[[1]]
 
@@ -611,10 +653,10 @@ server <- function(input, output, session) {
   })
 
   updatePlot.met.obs.km <- reactive({
-    lh <- updateSource()$lifehist.met.obs
-    ls <- updateSource()$lifestage.met.obs
-    met <- updateSource()$metric.met.obs
-    si <- updateSource()$site.met.obs
+    lh <- input$lifehist.met.obs
+    ls <- input$lifestage.met.obs
+    met <- input$metric.met.obs
+    si <- input$site.met.obs
 
     df <- updateData.met.obs.km()[[1]]
 
@@ -629,20 +671,20 @@ server <- function(input, output, session) {
 
   output$plot.year.met.obs <- renderPlot({
     updatePlot.met.obs.yr()
-  })
+  }) %>% bindCache(input$lifehist.met.obs, input$lifestage.met.obs, input$metric.met.obs)
 
   output$plot.rkm.met.obs <- renderPlot({
     updatePlot.met.obs.km()
-  })
+  }) %>% bindCache(input$lifehist.met.obs, input$lifestage.met.obs, input$metric.met.obs)
 
   output$metric_defs.met.obs <- renderDT({
-    table_data <- lifestages[lifestages$LifeHistory %in% updateSource()$lifehist.met.obs & lifestages$Lifestage %in% c("prespawn", "incubat", "rearing"),]
+    table_data <- lifestages[lifestages$LifeHistory %in% input$lifehist.met.obs & lifestages$Lifestage %in% c("prespawn", "incubat", "rearing"),]
     datatable(table_data,
     options = list(dom = 't'), rownames= F)
   })
 
   output$download.met.obs <- downloadHandler(
-    filename = function(){paste0(updateSource()$lifehist.met.obs, "_", updateSource()$lifestage.met.obs, "_", updateSource()$metric.met.obs, ".csv")},
+    filename = function(){paste0(input$lifehist.met.obs, "_", input$lifestage.met.obs, "_", input$metric.met.obs, ".csv")},
     content = function(fname){
       write.csv(updateData.met.obs.yr()[[2]], fname, row.names = FALSE)
     }
