@@ -586,12 +586,9 @@ server <- function(input, output, session) {
       dat <- mdat %>% group_by(year) %>% summarise(q = list(quantile(.data[[met]],
              probs = c(0,0.1, 0.25, 0.5, 0.75, 0.9, 1), na.rm = T))) %>% unnest_wider(q)
       colnames(dat) <- c("year", "Min", "Q10", "Q25", "Q50", "Q75", "Q90", "Max")
-      d1 <- unique(mdat[,c("SiteCode", "year")])
-      d2 <- table(d1)
-      d3 <- colSums(d2)
-      sites.per.year <- cbind.data.frame("year" = as.numeric(names(d3)), as.numeric(d3))
-      colnames(sites.per.year)[ncol(sites.per.year)] <- "NoSites"
-      sites.per.year[,"year"] <- as.integer(sites.per.year[,"year"])
+      setDT(mdat)
+      # Count unique sites per year
+      sites.per.year <- mdat[, .(NoSites = uniqueN(SiteCode)), by = year]
       dat <- dplyr::left_join(dat, sites.per.year, by = "year")
       dat <- as.data.frame(dat)
       mdat <- as.data.frame(mdat)
@@ -612,11 +609,9 @@ server <- function(input, output, session) {
     mdat <- metrics.obs[metrics.obs$Life.stage %in% ls & metrics.obs$LifeHistory %in% lh, c("SiteCode", "year", "River_km", met)]
 
     if(nrow(mdat) > 0){
-
       dat <- mdat %>% group_by(SiteCode) %>% summarise(q = list(quantile(.data[[met]],
              probs = c(0,0.1, 0.25, 0.5, 0.75, 0.9, 1), na.rm = T))) %>% unnest_wider(q)
       colnames(dat) <- c("SiteCode", "Min", "Q10", "Q25", "Q50", "Q75", "Q90", "Max")
-      d1 <- unique(mdat[,c("SiteCode", "year")])
       setDT(mdat)
       # Count unique years per SiteCode
       years.per.site <- mdat[, .(NoYears = uniqueN(year)), by = SiteCode]
@@ -671,11 +666,11 @@ server <- function(input, output, session) {
 
   output$plot.year.met.obs <- renderPlot({
     updatePlot.met.obs.yr()
-  }) %>% bindCache(input$lifehist.met.obs, input$lifestage.met.obs, input$metric.met.obs)
+  }) %>% bindCache(input$lifehist.met.obs, input$lifestage.met.obs, input$metric.met.obs, input$site.met.obs)
 
   output$plot.rkm.met.obs <- renderPlot({
     updatePlot.met.obs.km()
-  }) %>% bindCache(input$lifehist.met.obs, input$lifestage.met.obs, input$metric.met.obs)
+  }) %>% bindCache(input$lifehist.met.obs, input$lifestage.met.obs, input$metric.met.obs, input$site.met.obs)
 
   output$metric_defs.met.obs <- renderDT({
     table_data <- lifestages[lifestages$LifeHistory %in% input$lifehist.met.obs & lifestages$Lifestage %in% c("prespawn", "incubat", "rearing"),]
