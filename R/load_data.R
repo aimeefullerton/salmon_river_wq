@@ -10,6 +10,7 @@ load("data/site_info.RData")
 
 # stream temp data
 obs_temps <- qs2::qs_read("data/obs_temps.qs2")
+daily_data <- data.table::fread("data/salmon_environmental_data.csv")
 
 # thermal metrics
 lifestages <- read.csv("data/lifestage_periods.csv")
