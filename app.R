@@ -144,8 +144,8 @@ filters_ts.obs <- sidebar(
              through the BPA-funded project 1991-028-00 'Monitoring the Migrations of Wild Snake River Spring/Summer Chinook Salmon Smolts'.
              Data from 1993-1997 were provided by the Pacific Northwest National Laboratory.", 
            style = "font-size: 14px"),
-      span("Summaries of modeled stream temperatures are provided ", tags$a(href="https://connect.fisheries.noaa.gov/Salmon_River_Temperatures", "here"), ".", 
-           style = "font-size: 14px")
+#      span("Summaries of modeled stream temperatures are provided ", tags$a(href="https://connect.fisheries.noaa.gov/Salmon_River_Temperatures", "here"), ".", 
+#           style = "font-size: 14px")
     ),
     
       card(
@@ -462,12 +462,16 @@ server <- function(input, output, session) {
     full_dates <- as.data.frame(seq.Date(from = start_date, to = end_date, by = 1), drop = F); colnames(full_dates) <- "Date"
     plotting_data <- dplyr::left_join(full_dates, plotting_data, by = "Date")
     
+    # for downloading daily data:
+    sc <- unique(plotting_data$Stream_Name)
+    daily <- daily_data[daily_data$Site.name %in% sc,]
+    
 
-    return(plotting_data)
+    return(list(plotting_data, daily, sc))
   })
   
   output$dyplot_ts.obs <- renderDygraph({
-    plotting_data <- updateData.ts.obs()
+    plotting_data <- updateData.ts.obs()[[1]]
     vbl <- input$variable_ts.obs
     ymax <- max(plotting_data[,vbl], na.rm = T)
     
@@ -490,20 +494,9 @@ server <- function(input, output, session) {
     return(dy)
   })
   
-  # Download data for the site selected on the map
-  output$download.ts.obs <- downloadHandler(
-    filename = function(){
-      plot_data <- updateData.ts.obs()
-      paste0(plot_data$SiteCode, "_", plot_data$Stream_Name, ".csv")
-      }, 
-    content = function(fname){
-      plot_data <- updateData.ts.obs()
-      write.csv(plot_data[,c("SiteCode", "Date", "AvgDailyTemp")], fname, row.names = F)
-    }
-  )
 
   output$plot.ts.obs <- renderPlotly({
-    plotting_data <- updateData.ts.obs()
+    plotting_data <- updateData.ts.obs()[[1]]
     vbl <- input$variable_ts.obs
     
     # Determine the Title based on input
@@ -538,6 +531,15 @@ server <- function(input, output, session) {
     
     return(fig)
   })
+  
+  # Download data for the site selected on the map
+  output$download.ts.obs <- downloadHandler(
+    filename = function(){paste0(updateData.ts.obs()[[3]], "_daily_data.csv")}, 
+    content = function(fname){
+      write.csv(updateData.ts.obs()[[2]], fname, row.names = FALSE)
+    }
+  )
+  
   
 # Tab with observed metrics ----
 
