@@ -8,7 +8,7 @@ source("support_scripts/functions_metrics.R")
 source("R/load_data.R")
 
 # life stages ----
-#lifestages <- read.csv("data/lifestages.csv")
+#lifestages <- read.csv("data/lifestage_periods.csv")
 species <- "Chinook"
 lh = c("generic", "fall_outmigrants", "win_outmigrants", "spr_outmigrants")
 lifestages <- lifestages[lifestages$Lifestage %in% c("prespawn", "incubat", "rearing"),]
