@@ -109,9 +109,7 @@ cids <- sort(unique(obs_temps_hourly$COMID))
   obs_temps$Stream_Name[obs_temps$SiteCode == "STH"] <- "Sawtooth Hatchery"
   obs_temps$Latitude[obs_temps$SiteCode == "STH"] <- 44.148
   obs_temps$Longitude[obs_temps$SiteCode == "STH"] <- -114.887
-  obs_temps$COMID[obs_temps$SiteCode == "STH"] <- 23479129
-  obs_temps$River_km[obs_temps$SiteCode == "STH"] <- 625.73
-  
+   
   # Save
   data.table::fwrite(obs_temps, "data/obs_temps.csv")
   
