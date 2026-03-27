@@ -30,7 +30,7 @@ library(waiter)
 filters_ts.obs <- sidebar(
   title = "Instructions",
   width = 320,
-  span("Click on a site from the map to display its stream temperature. The slider controls limit what sites displayed on the map.", 
+  span("Click on a site from the map to display its stream temperature. The slider controls limit what sites are displayed on the map.", 
        style = "font-size: 14px; color: gray"),
   # Choose water temperature or depth
   radioButtons(inputId = "variable_ts.obs", label = "Data to plot:",
@@ -57,7 +57,7 @@ filters_ts.obs <- sidebar(
              The range of dates displayed is controlled by the slide bar below the graph. You can also select a date range
              by drawing a rectangle in the plot window. Double-click to return to the full time series. Mousing over the plot identifies specific data.",
        style = "font-size: 14px; color: gray"),
-  span("Boxplot (bottom right): annual summaries of temperatures for the selected site versus year. Note the x-axis differs from the top plot if there are missing data.",
+  span("Boxplot (bottom right): annual summaries of temperatures for the selected site versus year.",
        style = "font-size: 14px; color: gray")
 ) # end sidebar   
 
@@ -67,8 +67,9 @@ filters_ts.obs <- sidebar(
     width = 370,
     span("Thermal metrics are summaries of empirical stream temperature  that summarize thermal conditions 
         experienced by Chinook salmon at a monitored location over time periods associated with different life stages.", 
-        br(), br(), "Select filters from the menu to investigate 
-        thermal conditions over time and distance.", style = "font-size: 14px; color: gray"),
+        br(), br(), "Select filters from the menu to investigate thermal conditions over time and distance.
+        Note that spawning and incubation periods are shared across life history strategies, hence results only differ for rearing.", 
+        style = "font-size: 14px; color: gray"),
     selectInput(inputId = "lifehist.met.obs", label = "Life History Strategy:",
                 choices = c("fall_outmigrants", "win_outmigrants", "spr_outmigrants"),
                 selected = "spr_outmigrants"),
@@ -93,14 +94,14 @@ filters_ts.obs <- sidebar(
                 selected = NA),
                             
     span("Symbols and whiskers display medians and 10th/90th percentiles across sites and years. 
-         Symbol size reflects the number of years (top panel) or sites (bottom panel) over which data were available.", 
+         Symbol size reflects the number of sites (top panel) or years (bottom panel) over which data were available.", 
           style = "font-size:14px; color: gray"),
-    span("Metrics were only calculated when data had gaps of no more than 20% for the selected period. However, results may be driven by only a 
-         few locations or dates. This may influence interpretation of patterns if, for example, data for a given year come from sites  
-         located in one river section whereas data for a different year came from a different river section.", 
+    span("Metrics were only calculated when data had gaps of no more than 20% for the selected period. Because data are downloaded during
+         summer, the most recent year does not yet have enough data for a calculation. Results may be driven by just a 
+         few locations or dates, which may influence interpretation of patterns.", 
          style = "font-size: 14px; color: gray"),
     span("Life stages are defined under the plots.", style = "font-size: 14px; color: gray"),
-    downloadButton('download.met.obs', "Download data")
+    downloadButton('download.met.obs', "Download summarized data")
   ) #end sidebar
   
 
@@ -138,11 +139,11 @@ filters_ts.obs <- sidebar(
           The 'Thermal metrics' tab dispays observed stream temperature versus time and river kilometer, 
           summarized as thermal metrics for different life histories and life stages of Chinook salmon, or as monthly summaries over all reaches.",
         style = "font-size: 14px"),
-      span("Please cite as: J.J. Lamb. and A.H. Fullerton. 2026. Salmon River Water Quality Dataset. https://connect.fisheries.noaa.gov/Salmon_River_WaterQuality.",
-           style = "font-size: 14px"),
       span("Empirical observations of water quality were collected by NOAA's Northwest Fisheries Science Center
              through the BPA-funded project 1991-028-00 'Monitoring the Migrations of Wild Snake River Spring/Summer Chinook Salmon Smolts'.
              Data from 1993-1997 were provided by the Pacific Northwest National Laboratory.", 
+           style = "font-size: 14px"),
+      span("Please cite as: J.J. Lamb. and A.H. Fullerton. 2026. Water Quality Dataset for headwater streams in the Salmon River basin, Idaho, USA. https://connect.fisheries.noaa.gov/Salmon_River_WaterQuality.",
            style = "font-size: 14px"),
 #      span("Summaries of modeled stream temperatures are provided ", tags$a(href="https://connect.fisheries.noaa.gov/Salmon_River_Temperatures", "here"), ".", 
 #           style = "font-size: 14px")
@@ -194,7 +195,7 @@ filters_ts.obs <- sidebar(
         hr(),
         plotlyOutput("plot.ts.obs"),
         card_footer(
-          downloadButton('download.ts.obs', "Download data")
+          downloadButton('download.ts.obs', "Download daily data for the selected site")
         )
       )
     )
@@ -217,7 +218,8 @@ filters_ts.obs <- sidebar(
        card_footer(
          span("'Year_begin' and 'Year_end' are the year bookends for describing the life stage, where 0 is the spawning year, 1 is the calendar 
          year after spawning, and 2 is the following calendar year. 'MD_begin' and 'MD_end' are analogous: these are the month and day at
-         the beginning and end of the life stage. 'Thresh_hi' and 'Thresh_lo' are 'thresholds' (degrees C) referred to in certain metric calculations.", 
+         the beginning and end of the life stage. 'Thresh_hi' and 'Thresh_lo' are 'thresholds' (degrees C) referred to in certain metric calculations.
+         Lifestage-specific thresholds appear as dashed blue (lower) and red (upper) thresholds on some plots.", 
          style = "font-size:12px; color: gray")
        )
     )
