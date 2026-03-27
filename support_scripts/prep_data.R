@@ -162,5 +162,8 @@ obs_temps <- as.data.frame(obs_temps)
 obs_temps$Latitude[obs_temps$SiteCode == "CHC"] <- 44.3953
 obs_temps$Longitude[obs_temps$SiteCode == "CHC"] <- -115.170
 
+daily_data <- data.table::fread("data/salmon_environmental_data.csv")
+
 library(qs2)
 qs2::qs_save(obs_temps, file = "data/obs_temps.qs2")
+qs2::qs_save(daily_data, file = "data/daily_data.qs2")
