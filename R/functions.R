@@ -27,7 +27,7 @@ fncPlotData <- function(dat, lh, ls, xvar, y10 = "Q10", y50 = "Q50", y90 = "Q90"
   arrows(xxvar, as.numeric(yy90), xxvar, as.numeric(yy10), code = 3, length = 0.02, lwd = 2, angle = 90, col = "gray50")
 
   cx <- ifelse(xvar == "River_km", 0.125, 0.225)
-  points(xxvar, yy50, cex = dat[,var] * cx, pch = 21, bg = "#67bed9")
+  points(xxvar, yy50, cex = dat[,var] * cx, pch = 21, bg = "#267BB6") ##67bed9
   #points(xxvar, yy50, pch = 19, cex = dat[,var] * 0.05)
   # Get y-axis tick marks and add horizontal guidelines
   y_ticks <- axTicks(2)  # 2 specifies the y-axis
